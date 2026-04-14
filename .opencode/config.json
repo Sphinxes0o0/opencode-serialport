@@ -1,0 +1,12 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": ["opencode-serialport"],
+  "permission": {
+    "serial": {
+      "/dev/cu.usbserial-0001": "allow",
+      "/dev/cu.*": "ask",
+      "/dev/ttyUSB*": "ask",
+      "/dev/ttyACM*": "ask"
+    }
+  }
+}
