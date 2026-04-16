@@ -106,6 +106,18 @@ class SerialManager {
     return this.lifecycleManager.close(id, cleanup)
   }
 
+  clear(id: string): boolean {
+    return withSession(
+      this.lifecycleManager,
+      id,
+      (session) => {
+        this.outputManager.clear(session)
+        return true
+      },
+      false
+    )
+  }
+
   cleanupBySession(parentSessionId: string): void {
     this.lifecycleManager.cleanupBySession(parentSessionId)
   }

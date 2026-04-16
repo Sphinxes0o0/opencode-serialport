@@ -4,6 +4,8 @@ import { buildSessionNotFoundError } from '../serial/utils'
 
 const DESCRIPTION = 'Write data to an open serial port. Supports escape sequences.'
 
+const MAX_DATA_LENGTH = 65536 // 64KB max write size
+
 function parseEscapeSequences(data: string): string {
   return data
     .replace(/\\n/g, '\n')
@@ -33,16 +35,34 @@ export const serialWrite = tool({
       .describe('If true, do not parse escape sequences (default: false)'),
   },
   async execute(args) {
+    // Validate data length
+    if (args.data.length > MAX_DATA_LENGTH) {
+      throw new Error(
+        `Data too large: ${args.data.length} bytes. Maximum is ${MAX_DATA_LENGTH} bytes.`
+      )
+    }
+
+    // Validate session exists
     const session = manager.get(args.id)
     if (!session) {
       throw buildSessionNotFoundError(args.id)
     }
 
+    // Validate session is open
     if (session.status !== 'open') {
       throw new Error(`Serial session '${args.id}' is not open (status: ${session.status})`)
     }
 
+    // Parse escape sequences if not raw
     const data = args.raw ? args.data : parseEscapeSequences(args.data)
+
+    // Double-check parsed data length
+    if (data.length > MAX_DATA_LENGTH) {
+      throw new Error(
+        `Data too large after escape parsing: ${data.length} bytes. Maximum is ${MAX_DATA_LENGTH} bytes.`
+      )
+    }
+
     const success = manager.write(args.id, data)
 
     if (!success) {

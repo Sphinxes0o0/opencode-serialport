@@ -35,4 +35,8 @@ export class OutputManager {
     const hasMore = offset + paginatedMatches.length < totalMatches
     return { matches: paginatedMatches, totalMatches, totalLines, offset, hasMore }
   }
+
+  clear(session: SerialSession): void {
+    session.buffer.clear()
+  }
 }

@@ -11,11 +11,24 @@ function getDistWebPath(): string {
   return join(process.cwd(), 'dist', 'web')
 }
 
+/**
+ * WebSocket message batching configuration
+ */
+const BATCH_CONFIG = {
+  /** Maximum messages to batch before flushing */
+  maxBatchSize: 10,
+  /** Maximum time to wait before flushing (ms) */
+  maxWaitMs: 50,
+}
+
 export class SerialWebSocketServer implements Disposable {
   public readonly server: Server<WebSocketData>
   private readonly distWebPath: string
   // Track WebSocket connections by session ID
   private sessionWebSockets: Map<string, Set<ServerWebSocket<WebSocketData>>> = new Map()
+  // Message batching buffers
+  private messageBuffers: Map<string, string[]> = new Map()
+  private flushTimers: Map<string, ReturnType<typeof setTimeout>> = new Map()
 
   static async createServer(): Promise<SerialWebSocketServer> {
     const instance = new SerialWebSocketServer()
@@ -31,12 +44,65 @@ export class SerialWebSocketServer implements Disposable {
     })
   }
 
+  /**
+   * Broadcast data to all WebSocket clients connected to a session.
+   * Uses batching to reduce overhead for high-frequency serial data.
+   */
   private broadcastToSession(sessionId: string, data: string): void {
+    const sockets = this.sessionWebSockets.get(sessionId)
+    if (!sockets || sockets.size === 0) return
+
+    // Get or create message buffer for this session
+    let buffer = this.messageBuffers.get(sessionId)
+    if (!buffer) {
+      buffer = []
+      this.messageBuffers.set(sessionId, buffer)
+    }
+
+    // Add data to buffer
+    buffer.push(data)
+
+    // Flush if batch is full
+    if (buffer.length >= BATCH_CONFIG.maxBatchSize) {
+      this.flushSession(sessionId)
+      return
+    }
+
+    // Schedule flush if not already scheduled
+    if (!this.flushTimers.has(sessionId)) {
+      const timer = setTimeout(() => {
+        this.flushSession(sessionId)
+      }, BATCH_CONFIG.maxWaitMs)
+      this.flushTimers.set(sessionId, timer)
+    }
+  }
+
+  /**
+   * Flush buffered messages to all WebSocket clients for a session.
+   */
+  private flushSession(sessionId: string): void {
+    // Clear timer
+    const timer = this.flushTimers.get(sessionId)
+    if (timer) {
+      clearTimeout(timer)
+      this.flushTimers.delete(sessionId)
+    }
+
+    // Get and clear buffer
+    const buffer = this.messageBuffers.get(sessionId)
+    if (!buffer || buffer.length === 0) return
+
+    this.messageBuffers.delete(sessionId)
+
+    // Combine all buffered messages
+    const combinedData = buffer.join('')
+
+    // Send to all connected sockets
     const sockets = this.sessionWebSockets.get(sessionId)
     if (sockets) {
       for (const ws of sockets) {
-        if (ws.readyState === 1) { // 1 = OPEN
-          ws.send(data)
+        if (ws.readyState === 1) { // OPEN
+          ws.send(combinedData)
         }
       }
     }
@@ -167,6 +233,8 @@ export class SerialWebSocketServer implements Disposable {
                 this.sessionWebSockets.delete(sessionId)
               }
             }
+            // Flush any pending messages for this session
+            this.flushSession(sessionId)
           }
         },
       },
@@ -178,6 +246,12 @@ export class SerialWebSocketServer implements Disposable {
   }
 
   [Symbol.dispose]() {
+    // Clear all timers
+    for (const timer of this.flushTimers.values()) {
+      clearTimeout(timer)
+    }
+    this.flushTimers.clear()
+    this.messageBuffers.clear()
     manager.setBroadcastCallback(null)
     this.server.stop()
   }

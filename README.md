@@ -125,6 +125,19 @@ Query current session configuration.
 }
 ```
 
+### serial_clear
+
+Clear the serial port buffer for a session without closing the connection.
+
+```typescript
+// Tool: serial_clear
+// Arguments:
+{
+  id: "serial_a1b2c3d4",  // required
+}
+await serial_clear({ id: "serial_a1b2c3d4" })
+```
+
 ### serial_host_info
 
 Get host system information including OS, USB devices, serial ports, and driver recommendations.
