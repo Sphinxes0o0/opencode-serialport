@@ -1,4 +1,4 @@
-import type { PluginContext, PluginResult } from '@opencode-ai/plugin'
+import type { Plugin, PluginInput } from '@opencode-ai/plugin'
 import { initManager, manager } from './serial/manager'
 import { initPermissions } from './serial/permissions'
 import { serialList } from './tools/list'
@@ -13,10 +13,10 @@ import { $ } from 'bun'
 const serialOpenBrowserCommand = 'serial-open-browser'
 const serialShowUrlCommand = 'serial-show-url'
 
-export const SerialPlugin = async ({
+export const SerialPlugin: Plugin = async ({
   client,
   directory,
-}: PluginContext): Promise<PluginResult> => {
+}: PluginInput) => {
   initPermissions(client as any, directory)
   initManager(client as any)
 

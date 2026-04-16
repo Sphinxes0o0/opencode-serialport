@@ -1,3 +1,5 @@
+import type { RingBuffer } from './buffer'
+
 export type SerialStatus = 'open' | 'closing' | 'closed' | 'error'
 
 export interface SerialSession {
@@ -65,5 +67,3 @@ export interface SearchResult {
   offset: number
   hasMore: boolean
 }
-
-export type { RingBuffer } from './buffer'

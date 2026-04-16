@@ -1,6 +1,10 @@
-import type { Server } from 'bun'
+import type { Server, ServerWebSocket } from 'bun'
 import { join } from 'path'
 import { manager } from '../../serial/manager'
+
+interface WebSocketData {
+  sessionId: string
+}
 
 // Resolve dist/web directory relative to process.cwd()
 function getDistWebPath(): string {
@@ -8,8 +12,10 @@ function getDistWebPath(): string {
 }
 
 export class SerialWebSocketServer implements Disposable {
-  public readonly server: Server
+  public readonly server: Server<WebSocketData>
   private readonly distWebPath: string
+  // Track WebSocket connections by session ID
+  private sessionWebSockets: Map<string, Set<ServerWebSocket<WebSocketData>>> = new Map()
 
   static async createServer(): Promise<SerialWebSocketServer> {
     const instance = new SerialWebSocketServer()
@@ -19,12 +25,28 @@ export class SerialWebSocketServer implements Disposable {
   private constructor() {
     this.distWebPath = getDistWebPath()
     this.server = this.startWebServer()
+    // Register broadcast callback with manager
+    manager.setBroadcastCallback((sessionId, data) => {
+      this.broadcastToSession(sessionId, data)
+    })
+  }
+
+  private broadcastToSession(sessionId: string, data: string): void {
+    const sockets = this.sessionWebSockets.get(sessionId)
+    if (sockets) {
+      for (const ws of sockets) {
+        if (ws.readyState === 1) { // 1 = OPEN
+          ws.send(data)
+        }
+      }
+    }
   }
 
   private serveFile(path: string): Response | null {
     try {
       const file = Bun.file(path)
-      if (file.exists) {
+      // Use size >= 0 as a synchronous check for file existence
+      if (file.size >= 0) {
         const ext = path.split('.').pop()?.toLowerCase()
         const mimeTypes: Record<string, string> = {
           html: 'text/html',
@@ -47,8 +69,8 @@ export class SerialWebSocketServer implements Disposable {
     return null
   }
 
-  private startWebServer(): Server {
-    return Bun.serve({
+  private startWebServer(): Server<WebSocketData> {
+    return Bun.serve<WebSocketData>({
       port: 0,
       hostname: process.env.SERIAL_WEB_HOSTNAME ?? '::1',
 
@@ -73,6 +95,12 @@ export class SerialWebSocketServer implements Disposable {
           filePath = join(this.distWebPath, 'index.html')
         } else if (url.pathname.startsWith('/assets/')) {
           filePath = join(this.distWebPath, url.pathname)
+        } else if (url.pathname === '/api/sessions') {
+          // Session list API endpoint
+          const sessions = manager.list()
+          return new Response(JSON.stringify({ sessions }), {
+            headers: { 'Content-Type': 'application/json' },
+          })
         } else {
           filePath = join(this.distWebPath, url.pathname)
         }
@@ -92,12 +120,12 @@ export class SerialWebSocketServer implements Disposable {
 
       websocket: {
         message: (ws, message) => {
-          const sessionId = (ws.data as { sessionId: string })?.sessionId
+          const sessionId = ws.data?.sessionId
           if (!sessionId || typeof message !== 'string') return
           manager.write(sessionId, message)
         },
         open: (ws) => {
-          const sessionId = (ws.data as { sessionId: string })?.sessionId
+          const sessionId = ws.data?.sessionId
           if (!sessionId) {
             ws.close(1008, 'Missing session ID')
             return
@@ -108,7 +136,14 @@ export class SerialWebSocketServer implements Disposable {
             ws.close(1008, 'Session not found')
             return
           }
-          ws.subscribe(`serial:${sessionId}`)
+          // Track this WebSocket for the session
+          let sockets = this.sessionWebSockets.get(sessionId)
+          if (!sockets) {
+            sockets = new Set()
+            this.sessionWebSockets.set(sessionId, sockets)
+          }
+          sockets.add(ws)
+          // Send initial connection message with session info
           ws.send(
             JSON.stringify({
               type: 'connected',
@@ -123,9 +158,15 @@ export class SerialWebSocketServer implements Disposable {
           )
         },
         close: (ws) => {
-          const sessionId = (ws.data as { sessionId: string })?.sessionId
+          const sessionId = ws.data?.sessionId
           if (sessionId) {
-            ws.unsubscribe(`serial:${sessionId}`)
+            const sockets = this.sessionWebSockets.get(sessionId)
+            if (sockets) {
+              sockets.delete(ws)
+              if (sockets.size === 0) {
+                this.sessionWebSockets.delete(sessionId)
+              }
+            }
           }
         },
       },
@@ -137,6 +178,7 @@ export class SerialWebSocketServer implements Disposable {
   }
 
   [Symbol.dispose]() {
+    manager.setBroadcastCallback(null)
     this.server.stop()
   }
 }

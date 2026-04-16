@@ -1,4 +1,4 @@
-import { writeSync } from 'bun:fs'
+import { writeSync } from 'node:fs'
 import type { SerialSession, ReadResult, SearchResult } from './types'
 
 export class OutputManager {

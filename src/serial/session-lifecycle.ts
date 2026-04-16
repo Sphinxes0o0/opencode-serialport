@@ -1,5 +1,5 @@
-import { open, read, close, writeSync, closeSync } from 'bun:fs'
-import { spawn } from 'bun:child_process'
+import { openSync, readSync, closeSync, writeSync } from 'node:fs'
+import { $ } from 'bun'
 import { RingBuffer } from './buffer'
 import { generateId } from './utils'
 import type { SerialSession, SerialSessionInfo, SpawnOptions } from './types'
@@ -39,8 +39,8 @@ export class SessionLifecycleManager {
     // Configure stty for the serial port
     await this.configureStty(session)
 
-    // Open the serial port file descriptor
-    session.fd = open(session.port, 'r+')
+    // Open the serial port file descriptor (synchronous)
+    session.fd = openSync(session.port, 'r+')
 
     // Start async read loop
     this.startReadLoop(session, onData, onDisconnect)
@@ -50,44 +50,44 @@ export class SessionLifecycleManager {
   }
 
   private async configureStty(session: SerialSession): Promise<void> {
-    const args = this.buildSttyArgs(session)
-    await spawn(`stty`, args).exited
+    const sttyCmd = this.buildSttyCommand(session)
+    await $`${sttyCmd}`
   }
 
-  private buildSttyArgs(session: SerialSession): string[] {
+  private buildSttyCommand(session: SerialSession): string {
     const { port, baudrate, databits, parity, stopbits } = session
-    const args: string[] = ['-f', port, 'raw']
+    const parts: string[] = ['stty', '-f', port, 'raw']
 
     // Set baud rate
-    args.push(String(baudrate))
+    parts.push(String(baudrate))
 
     // Set data bits
-    args.push(`cs${databits}`)
+    parts.push(`cs${databits}`)
 
     // Set parity
     if (parity === 'none') {
-      args.push('-parenb')
+      parts.push('-parenb')
     } else if (parity === 'even') {
-      args.push('parenb', '-parodd')
+      parts.push('parenb', '-parodd')
     } else if (parity === 'odd') {
-      args.push('parenb', 'parodd')
+      parts.push('parenb', 'parodd')
     } else if (parity === 'mark') {
-      args.push('parenb', 'parodd', 'cmspar')
+      parts.push('parenb', 'parodd', 'cmspar')
     } else if (parity === 'space') {
-      args.push('parenb', '-cmspar')
+      parts.push('parenb', '-cmspar')
     }
 
     // Set stop bits
     if (stopbits === 2) {
-      args.push('cstopb')
+      parts.push('cstopb')
     } else {
-      args.push('-cstopb')
+      parts.push('-cstopb')
     }
 
     // Disable echo by default for serial
-    args.push('-echo')
+    parts.push('-echo')
 
-    return args
+    return parts.join(' ')
   }
 
   private async startReadLoop(
@@ -100,30 +100,32 @@ export class SessionLifecycleManager {
 
     if (fd === null) return
 
-    // Read asynchronously in a loop
-    const readChunk = async (): Promise<void> => {
-      while (session.status === 'open' && session.fd !== null) {
-        try {
-          const buffer = new Uint8Array(1024)
-          const { bytesRead } = await read(fd, buffer)
+    // Read asynchronously in a loop using setTimeout to avoid blocking
+    const readChunk = (): void => {
+      if (session.status !== 'open' || session.fd === null) {
+        return
+      }
 
-          if (bytesRead > 0) {
-            const text = decoder.decode(buffer.slice(0, bytesRead))
-            session.buffer.append(text)
-            onData(session, text)
-          } else if (bytesRead === 0) {
-            // EOF — device disconnected
-            session.status = 'closed'
-            onDisconnect(session)
-            break
-          }
-        } catch (e) {
-          if (session.status === 'open') {
-            session.status = 'error'
-            session.error = String(e)
-            onDisconnect(session)
-          }
-          break
+      try {
+        const buffer = new Uint8Array(1024)
+        const bytesRead = readSync(fd, buffer)
+
+        if (bytesRead > 0) {
+          const text = decoder.decode(buffer.slice(0, bytesRead))
+          session.buffer.append(text)
+          onData(session, text)
+          // Schedule next read
+          setTimeout(() => readChunk(), 0)
+        } else if (bytesRead === 0) {
+          // EOF — device disconnected
+          session.status = 'closed'
+          onDisconnect(session)
+        }
+      } catch (e) {
+        if (session.status === 'open') {
+          session.status = 'error'
+          session.error = String(e)
+          onDisconnect(session)
         }
       }
     }

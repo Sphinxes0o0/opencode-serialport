@@ -10,8 +10,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@opencode-ai/plugin": "workspace:*",
-    "@opencode-ai/sdk": "workspace:*",
+    "@opencode-ai/plugin": "file:/Users/sphinx/.config/opencode/node_modules/@opencode-ai/plugin",
+    "@opencode-ai/sdk": "file:/Users/sphinx/.config/opencode/node_modules/@opencode-ai/sdk",
     "open": "^10.1.0",
     "ws": "^8.18.0"
   },

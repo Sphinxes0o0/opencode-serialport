@@ -10,12 +10,24 @@ import type {
 } from './types'
 import { withSession } from './utils'
 
+// Callback type for broadcasting serial data to WebSocket clients
+type BroadcastCallback = (sessionId: string, data: string) => void
+
 class SerialManager {
   private lifecycleManager = new SessionLifecycleManager()
   private outputManager = new OutputManager()
+  private broadcastCallback: BroadcastCallback | null = null
 
   init(_client: OpencodeClient): void {
     // NotificationManager can be added here when needed
+  }
+
+  /**
+   * Set a callback to be invoked when serial data is received.
+   * The callback receives the session ID and the data string.
+   */
+  setBroadcastCallback(callback: BroadcastCallback | null): void {
+    this.broadcastCallback = callback
   }
 
   clearAllSessions(): void {
@@ -28,10 +40,16 @@ class SerialManager {
     const session = await this.lifecycleManager.open(
       opts,
       (s, data) => {
-        // onData callback — can be used for real-time WebSocket forwarding
+        // Broadcast to WebSocket clients if callback is registered
+        if (this.broadcastCallback) {
+          this.broadcastCallback(s.id, data)
+        }
       },
       (s) => {
-        // onDisconnect callback
+        // onDisconnect callback — could broadcast disconnect event
+        if (this.broadcastCallback) {
+          this.broadcastCallback(s.id, '\n--- DISCONNECTED ---\n')
+        }
       }
     )
     return { session, info: this.lifecycleManager.toInfo(session) }

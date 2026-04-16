@@ -1,7 +1,6 @@
 import { tool } from '@opencode-ai/plugin'
 import { manager } from '../serial/manager'
 import { buildSessionNotFoundError } from '../serial/utils'
-import { spawn } from 'bun:child_process'
 
 const DESCRIPTION =
   'Configure or query settings of an open serial port session.'

@@ -21,6 +21,27 @@ function App() {
     return match ? match[1] : null
   }, [])
 
+  // Fetch sessions from the API
+  const fetchSessions = useCallback(async () => {
+    try {
+      const response = await fetch('/api/sessions')
+      if (response.ok) {
+        const data = await response.json()
+        setSessions(data.sessions || [])
+      }
+    } catch {
+      // Silently fail - server might not be running
+    }
+  }, [])
+
+  // Initial session fetch and polling
+  useEffect(() => {
+    fetchSessions()
+    // Poll for session updates every 2 seconds
+    const interval = setInterval(fetchSessions, 2000)
+    return () => clearInterval(interval)
+  }, [fetchSessions])
+
   useEffect(() => {
     const sessionId = getSessionIdFromPath()
     if (sessionId) {
