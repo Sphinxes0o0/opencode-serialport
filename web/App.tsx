@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { Terminal } from './components/Terminal'
+import { Settings } from './components/Settings'
 
 interface SessionInfo {
   id: string
@@ -14,6 +15,9 @@ function App() {
   const [selectedSession, setSelectedSession] = useState<string | null>(null)
   const [connecting, setConnecting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showSettings, setShowSettings] = useState(false)
+  const [fontSize, setFontSize] = useState(14)
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark')
 
   // Parse session ID from URL path: /serial/:id
   const getSessionIdFromPath = useCallback((): string | null => {
@@ -66,15 +70,36 @@ function App() {
     window.history.pushState({}, '', '/')
   }, [])
 
+  const backgroundColor = theme === 'dark' ? '#0d1117' : '#ffffff'
+  const textColor = theme === 'dark' ? '#e6edf3' : '#1f2328'
+  const secondaryColor = theme === 'dark' ? '#7d8590' : '#656d76'
+  const borderColor = theme === 'dark' ? '#30363d' : '#d0d7de'
+  const cardBg = theme === 'dark' ? '#161b22' : '#f6f8fa'
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', padding: '16px', gap: '16px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', padding: '16px', gap: '16px', background: backgroundColor, color: textColor }}>
       <header style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
         <h1 style={{ fontSize: '20px', fontWeight: 600, color: '#61dafb' }}>
           Serial Monitor
         </h1>
-        <span style={{ fontSize: '12px', color: '#7d8590', background: '#21262d', padding: '2px 8px', borderRadius: '12px' }}>
+        <span style={{ fontSize: '12px', color: secondaryColor, background: cardBg, padding: '2px 8px', borderRadius: '12px' }}>
           {sessions.length} session(s)
         </span>
+        <div style={{ flex: 1 }} />
+        <button
+          onClick={() => setShowSettings(true)}
+          style={{
+            background: 'transparent',
+            border: `1px solid ${borderColor}`,
+            borderRadius: '6px',
+            padding: '6px 12px',
+            color: secondaryColor,
+            cursor: 'pointer',
+            fontSize: '13px',
+          }}
+        >
+          ⚙️ Settings
+        </button>
       </header>
 
       {error && (
@@ -86,9 +111,9 @@ function App() {
       <div style={{ flex: 1, display: 'flex', gap: '16px', minHeight: 0 }}>
         {/* Session List Sidebar */}
         <aside style={{ width: '260px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <div style={{ fontSize: '12px', color: '#7d8590', marginBottom: '4px' }}>ACTIVE SESSIONS</div>
+          <div style={{ fontSize: '12px', color: secondaryColor, marginBottom: '4px' }}>ACTIVE SESSIONS</div>
           {sessions.length === 0 ? (
-            <div style={{ fontSize: '13px', color: '#484f58', fontStyle: 'italic' }}>
+            <div style={{ fontSize: '13px', color: theme === 'dark' ? '#484f58' : '#8c959f', fontStyle: 'italic' }}>
               No active sessions. Use serial_open in opencode to create one.
             </div>
           ) : (
@@ -97,21 +122,34 @@ function App() {
                 key={s.id}
                 onClick={() => handleConnect(s.id)}
                 style={{
-                  background: selectedSession === s.id ? '#21262d' : 'transparent',
+                  background: selectedSession === s.id ? cardBg : 'transparent',
                   border: '1px solid',
-                  borderColor: selectedSession === s.id ? '#58a6ff' : '#30363d',
+                  borderColor: selectedSession === s.id ? '#58a6ff' : borderColor,
                   borderRadius: '6px',
                   padding: '10px 12px',
                   textAlign: 'left',
                   cursor: 'pointer',
-                  color: '#e6edf3',
+                  color: textColor,
                 }}
               >
                 <div style={{ fontSize: '13px', fontWeight: 500 }}>{s.title}</div>
-                <div style={{ fontSize: '11px', color: '#7d8590', marginTop: '2px' }}>
+                <div style={{ fontSize: '11px', color: secondaryColor, marginTop: '2px' }}>
                   {s.port} @ {s.baudrate} baud
                 </div>
-                <div style={{ fontSize: '11px', color: s.status === 'open' ? '#3fb950' : '#7d8590', marginTop: '2px' }}>
+                <div style={{
+                  fontSize: '11px',
+                  color: s.status === 'open' ? '#3fb950' : secondaryColor,
+                  marginTop: '2px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}>
+                  <span style={{
+                    width: '6px',
+                    height: '6px',
+                    borderRadius: '50%',
+                    background: s.status === 'open' ? '#3fb950' : secondaryColor,
+                  }} />
                   {s.status}
                 </div>
               </button>
@@ -126,10 +164,12 @@ function App() {
               sessionId={selectedSession}
               onDisconnect={handleDisconnect}
               onError={setError}
+              fontSize={fontSize}
+              theme={theme}
             />
           ) : (
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#161b22', borderRadius: '8px', border: '1px solid #30363d' }}>
-              <div style={{ textAlign: 'center', color: '#484f58' }}>
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: cardBg, borderRadius: '8px', border: `1px solid ${borderColor}` }}>
+              <div style={{ textAlign: 'center', color: theme === 'dark' ? '#484f58' : '#8c959f' }}>
                 <div style={{ fontSize: '32px', marginBottom: '8px' }}>📡</div>
                 <div>Select a session from the sidebar</div>
                 <div style={{ fontSize: '12px', marginTop: '4px' }}>or use serial_open in opencode</div>
@@ -138,6 +178,15 @@ function App() {
           )}
         </main>
       </div>
+
+      <Settings
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+        fontSize={fontSize}
+        onFontSizeChange={setFontSize}
+        theme={theme}
+        onThemeChange={setTheme}
+      />
     </div>
   )
 }

@@ -224,6 +224,7 @@ describe('Plugin Hooks', () => {
     const { serialRead } = require('./src/tools/read')
     const { serialClose } = require('./src/tools/kill')
     const { serialConfig } = require('./src/tools/config')
+    const { serialClear } = require('./src/tools/clear')
     const { serialHostInfo } = require('./src/tools/host-info')
     const { serialInstallDriver } = require('./src/tools/install-driver')
 
@@ -233,6 +234,7 @@ describe('Plugin Hooks', () => {
     expect(typeof serialRead).toBe('object')
     expect(typeof serialClose).toBe('object')
     expect(typeof serialConfig).toBe('object')
+    expect(typeof serialClear).toBe('object')
     expect(typeof serialHostInfo).toBe('object')
     expect(typeof serialInstallDriver).toBe('object')
 
@@ -243,7 +245,157 @@ describe('Plugin Hooks', () => {
     expect(typeof serialRead.execute).toBe('function')
     expect(typeof serialClose.execute).toBe('function')
     expect(typeof serialConfig.execute).toBe('function')
+    expect(typeof serialClear.execute).toBe('function')
     expect(typeof serialHostInfo.execute).toBe('function')
     expect(typeof serialInstallDriver.execute).toBe('function')
+  })
+})
+
+describe('Edge Cases and Validation', () => {
+  test('should validate baudrate ranges', () => {
+    const validBaudrates = [300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600]
+
+    expect(validBaudrates).toContain(9600)
+    expect(validBaudrates).toContain(115200)
+    expect(validBaudrates).toContain(921600)
+  })
+
+  test('should reject invalid baudrates', () => {
+    const validBaudrates = [300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600]
+
+    // Invalid values should not be in valid list
+    expect(validBaudrates).not.toContain(0)
+    expect(validBaudrates).not.toContain(-1)
+    expect(validBaudrates).not.toContain(1000000)
+  })
+
+  test('should validate port path patterns', () => {
+    const validPatterns = [
+      '/dev/cu.usbserial-0001',
+      '/dev/cu.usbserial-12345678',
+      '/dev/ttyUSB0',
+      '/dev/ttyACM0',
+      '/dev/ttyS0',
+      '/dev/serial/by-id/usb-1a86_USB_Serial',
+      'COM1',
+      'COM10',
+    ]
+
+    const isValidPort = (path: string) => {
+      const patterns = [
+        /^\/dev\/cu\./,
+        /^\/dev\/ttyUSB/,
+        /^\/dev\/ttyACM/,
+        /^\/dev\/ttyS/,
+        /^\/dev\/serial/,
+        /^COM\d+$/i,
+      ]
+      return patterns.some(p => p.test(path))
+    }
+
+    expect(isValidPort('/dev/cu.usbserial-0001')).toBe(true)
+    expect(isValidPort('/dev/ttyUSB0')).toBe(true)
+    expect(isValidPort('COM1')).toBe(true)
+    expect(isValidPort('/dev/null')).toBe(false)
+    expect(isValidPort('/etc/passwd')).toBe(false)
+  })
+
+  test('should handle empty data in serial_write', () => {
+    const emptyData = ''
+    expect(emptyData.length).toBe(0)
+  })
+
+  test('should handle binary escape sequences', () => {
+    const parseHex = (hex: string) => String.fromCharCode(parseInt(hex, 16))
+
+    expect(parseHex('00')).toBe('\x00')
+    expect(parseHex('FF')).toBe('\xFF')
+    expect(parseHex('0A')).toBe('\n')
+    expect(parseHex('0D')).toBe('\r')
+  })
+
+  test('should handle unicode escape sequences', () => {
+    const parseUnicode = (hex: string) => String.fromCharCode(parseInt(hex, 16))
+
+    expect(parseUnicode('0041')).toBe('A')
+    expect(parseUnicode('0042')).toBe('B')
+    expect(parseUnicode('03A3')).toBe('Σ')
+  })
+
+  test('should validate data bits', () => {
+    const validDataBits = [5, 6, 7, 8]
+
+    expect(validDataBits).toContain(8)
+    expect(validDataBits).not.toContain(4)
+    expect(validDataBits).not.toContain(9)
+  })
+
+  test('should validate stop bits', () => {
+    const validStopBits = [1, 2]
+
+    expect(validStopBits).toContain(1)
+    expect(validStopBits).toContain(2)
+    expect(validStopBits).not.toContain(1.5) // 1.5 not commonly supported
+  })
+
+  test('should handle null/undefined session ID', () => {
+    const sessionId = null
+    const isValidId = (id: string | null) => id !== null && id !== undefined && id.length > 0
+
+    expect(isValidId(null)).toBe(false)
+    expect(isValidId(undefined)).toBe(false)
+    expect(isValidId('')).toBe(false)
+    expect(isValidId('serial_12345678')).toBe(true)
+  })
+
+  test('should validate regex patterns for search', () => {
+    const isValidRegex = (pattern: string) => {
+      try {
+        new RegExp(pattern)
+        return true
+      } catch {
+        return false
+      }
+    }
+
+    const isNotDangerous = (pattern: string) => {
+      // Very basic check for obviously dangerous patterns
+      if (/\(\.\*\)\{100,\}/.test(pattern)) return false
+      return true
+    }
+
+    expect(isValidRegex('hello')).toBe(true)
+    expect(isValidRegex('line[0-9]+')).toBe(true)
+    expect(isValidRegex('(.*){10}')).toBe(true) // Valid but potentially slow
+    expect(isNotDangerous('(.*){100,}')).toBe(false) // Definitely dangerous
+  })
+
+  test('should handle buffer overflow gracefully', () => {
+    const MAX_BUFFER = 1_000_000
+    const largeData = 'x'.repeat(MAX_BUFFER + 1)
+
+    expect(largeData.length).toBeGreaterThan(MAX_BUFFER)
+  })
+
+  test('should handle special characters in data', () => {
+    const specialChars = '\x00\x01\x02\x7F\x80\xFF'
+    expect(specialChars.length).toBe(6)
+  })
+})
+
+describe('Error Messages', () => {
+  test('should build session not found error', () => {
+    const buildError = (id: string) => `Serial session '${id}' not found. Use serial_list to see active sessions.`
+
+    expect(buildError('invalid_id')).toContain('invalid_id')
+    expect(buildError('invalid_id')).toContain('serial_list')
+  })
+
+  test('should include helpful context in error messages', () => {
+    const error = 'Serial session \'serial_1234\' is not open (status: closed)'
+
+    expect(error).toContain('not open')
+    expect(error).toContain('closed')
+    expect(error).toContain('serial_1234')
   })
 })

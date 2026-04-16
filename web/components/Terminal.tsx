@@ -7,11 +7,45 @@ interface TerminalProps {
   sessionId: string
   onDisconnect: () => void
   onError: (err: string | null) => void
+  fontSize?: number
+  theme?: 'dark' | 'light'
 }
 
 const RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 16000, 30000] // Exponential backoff, max 30s
 
-export function Terminal({ sessionId, onDisconnect, onError }: TerminalProps) {
+const DARK_THEME = {
+  background: '#0d1117',
+  foreground: '#e6edf3',
+  cursor: '#58a6ff',
+  cursorAccent: '#0d1117',
+  selectionBackground: '#58a6ff44',
+  black: '#484f58',
+  red: '#f85149',
+  green: '#3fb950',
+  yellow: '#d29922',
+  blue: '#58a6ff',
+  magenta: '#bc8cff',
+  cyan: '#39c5cf',
+  white: '#b1bac4',
+}
+
+const LIGHT_THEME = {
+  background: '#ffffff',
+  foreground: '#1f2328',
+  cursor: '#0969da',
+  cursorAccent: '#ffffff',
+  selectionBackground: '#0969da44',
+  black: '#484f58',
+  red: '#cf222e',
+  green: '#1a7f37',
+  yellow: '#9a6700',
+  blue: '#0969da',
+  magenta: '#8250df',
+  cyan: '#219aaf',
+  white: '#b1bac4',
+}
+
+export function Terminal({ sessionId, onDisconnect, onError, fontSize = 14, theme = 'dark' }: TerminalProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const xtermRef = useRef<XTerm | null>(null)
   const fitAddonRef = useRef<FitAddon | null>(null)
@@ -20,27 +54,16 @@ export function Terminal({ sessionId, onDisconnect, onError }: TerminalProps) {
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [isReconnecting, setIsReconnecting] = useState(false)
 
+  const currentTheme = theme === 'dark' ? DARK_THEME : LIGHT_THEME
+  const terminalBackground = theme === 'dark' ? '#0d1117' : '#ffffff'
+
   const initTerminal = useCallback(() => {
     if (!containerRef.current) return
 
     const xterm = new XTerm({
-      theme: {
-        background: '#0d1117',
-        foreground: '#e6edf3',
-        cursor: '#58a6ff',
-        cursorAccent: '#0d1117',
-        selectionBackground: '#58a6ff44',
-        black: '#484f58',
-        red: '#f85149',
-        green: '#3fb950',
-        yellow: '#d29922',
-        blue: '#58a6ff',
-        magenta: '#bc8cff',
-        cyan: '#39c5cf',
-        white: '#b1bac4',
-      },
+      theme: currentTheme,
       fontFamily: "Menlo, Monaco, 'Cascadia Code', Consolas, monospace",
-      fontSize: 14,
+      fontSize,
       cursorBlink: true,
       scrollback: 10000,
     })
@@ -63,7 +86,7 @@ export function Terminal({ sessionId, onDisconnect, onError }: TerminalProps) {
       observer.disconnect()
       xterm.dispose()
     }
-  }, [])
+  }, [currentTheme, fontSize])
 
   useEffect(() => {
     const cleanup = initTerminal()
@@ -186,9 +209,9 @@ export function Terminal({ sessionId, onDisconnect, onError }: TerminalProps) {
       ref={containerRef}
       style={{
         flex: 1,
-        background: '#0d1117',
+        background: terminalBackground,
         borderRadius: '8px',
-        border: '1px solid #30363d',
+        border: `1px solid ${theme === 'dark' ? '#30363d' : '#d0d7de'}`,
         padding: '8px',
         minHeight: 0,
       }}
