@@ -7,6 +7,8 @@ import { serialWrite } from './tools/write'
 import { serialRead } from './tools/read'
 import { serialClose } from './tools/kill'
 import { serialConfig } from './tools/config'
+import { serialHostInfo } from './tools/host-info'
+import { serialInstallDriver } from './tools/install-driver'
 import { getOrCreateWebServer } from './web/server/server'
 import { $ } from 'bun'
 
@@ -52,6 +54,8 @@ export const SerialPlugin: Plugin = async ({
       serial_read: serialRead,
       serial_close: serialClose,
       serial_config: serialConfig,
+      serial_host_info: serialHostInfo,
+      serial_install_driver: serialInstallDriver,
     },
     config: async (input) => {
       if (!input.command) input.command = {}

@@ -9,6 +9,8 @@ OpenCode plugin for serial port communication with a Web UI.
 - Bidirectional communication via tool interface or Web UI
 - Real-time terminal in browser using xterm.js
 - Permission-based access control via `opencode.json`
+- Host system info and USB device detection
+- Driver recommendations and installation for missing serial ports
 
 ## Installation
 
@@ -123,6 +125,31 @@ Query current session configuration.
 }
 ```
 
+### serial_host_info
+
+Get host system information including OS, USB devices, serial ports, and driver recommendations.
+
+```typescript
+// Tool: serial_host_info
+// Arguments: {}
+const info = await serial_host_info()
+// Returns detailed system info with driver recommendations if no serial ports found
+```
+
+### serial_install_driver
+
+Install USB to serial driver. If no ports are detected, provides installation instructions.
+
+```typescript
+// Tool: serial_install_driver
+// Arguments:
+{
+  driver?: "ch340" | "ftdi" | "cp2102" | "auto",  // default: "auto"
+  force?: false,                                    // skip confirmation (default: false)
+}
+await serial_install_driver({ driver: "ch340" })
+```
+
 ## Web UI
 
 Open the Web UI in your browser:
@@ -186,7 +213,9 @@ src/
 │   ├── write.ts          # serial_write
 │   ├── read.ts           # serial_read
 │   ├── kill.ts           # serial_close
-│   └── config.ts         # serial_config
+│   ├── config.ts         # serial_config
+│   ├── host-info.ts      # serial_host_info
+│   └── install-driver.ts # serial_install_driver
 └── web/
     └── server/
         └── server.ts     # Bun WebSocket + HTTP server
