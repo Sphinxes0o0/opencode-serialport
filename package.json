@@ -7,7 +7,8 @@
   "scripts": {
     "build": "vite build",
     "dev": "vite build --watch",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
   },
   "dependencies": {
     "@opencode-ai/plugin": "file:/Users/sphinx/.config/opencode/node_modules/@opencode-ai/plugin",
