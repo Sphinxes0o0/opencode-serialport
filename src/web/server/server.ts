@@ -72,7 +72,7 @@ export class SerialWebSocketServer implements Disposable {
   private startWebServer(): Server<WebSocketData> {
     return Bun.serve<WebSocketData>({
       port: 0,
-      hostname: process.env.SERIAL_WEB_HOSTNAME ?? '::1',
+      hostname: process.env.SERIAL_WEB_HOSTNAME ?? 'localhost',
 
       fetch: (req) => {
         const url = new URL(req.url)
