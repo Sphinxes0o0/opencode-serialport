@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useCallback } from 'react'
+import React, { useEffect, useRef, useCallback, useState } from 'react'
 import { Terminal as XTerm } from 'xterm'
 import { FitAddon } from 'xterm-addon-fit'
 import 'xterm/css/xterm.css'
@@ -9,11 +9,16 @@ interface TerminalProps {
   onError: (err: string | null) => void
 }
 
+const RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 16000, 30000] // Exponential backoff, max 30s
+
 export function Terminal({ sessionId, onDisconnect, onError }: TerminalProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const xtermRef = useRef<XTerm | null>(null)
   const fitAddonRef = useRef<FitAddon | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
+  const reconnectAttemptRef = useRef(0)
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [isReconnecting, setIsReconnecting] = useState(false)
 
   const initTerminal = useCallback(() => {
     if (!containerRef.current) return
@@ -65,13 +70,25 @@ export function Terminal({ sessionId, onDisconnect, onError }: TerminalProps) {
     return cleanup
   }, [initTerminal])
 
-  // Connect WebSocket when sessionId changes
-  useEffect(() => {
-    if (!sessionId || !xtermRef.current) return
+  const clearReconnectTimeout = useCallback(() => {
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current)
+      reconnectTimeoutRef.current = null
+    }
+  }, [])
+
+  const connectWebSocket = useCallback(() => {
+    if (!sessionId || !xtermRef.current || wsRef.current) return
 
     const xterm = xtermRef.current
-    xterm.clear()
-    xterm.writeln(`\x1b[36mConnecting to session ${sessionId}...\x1b[0m`)
+    const attempt = reconnectAttemptRef.current
+
+    if (isReconnecting) {
+      xterm.writeln(`\x1b[33mReconnecting (attempt ${attempt + 1})...\x1b[0m`)
+    } else {
+      xterm.clear()
+      xterm.writeln(`\x1b[36mConnecting to session ${sessionId}...\x1b[0m`)
+    }
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
     const host = window.location.host
@@ -81,6 +98,8 @@ export function Terminal({ sessionId, onDisconnect, onError }: TerminalProps) {
     wsRef.current = ws
 
     ws.onopen = () => {
+      reconnectAttemptRef.current = 0
+      setIsReconnecting(false)
       xterm.writeln(`\x1b[32mConnected\x1b[0m`)
     }
 
@@ -109,8 +128,22 @@ export function Terminal({ sessionId, onDisconnect, onError }: TerminalProps) {
     }
 
     ws.onclose = () => {
-      xterm.writeln(`\x1b[33mDisconnected\x1b[0m`)
-      onDisconnect()
+      wsRef.current = null
+      xterm.writeln(`\x1b[33mConnection closed\x1b[0m`)
+
+      // Attempt to reconnect if not intentionally disconnected
+      if (reconnectAttemptRef.current < RECONNECT_DELAYS.length) {
+        const delay = RECONNECT_DELAYS[reconnectAttemptRef.current]
+        setIsReconnecting(true)
+        reconnectAttemptRef.current++
+        xterm.writeln(`\x1b[33mReconnecting in ${delay / 1000}s...\x1b[0m`)
+        reconnectTimeoutRef.current = setTimeout(() => {
+          connectWebSocket()
+        }, delay)
+      } else {
+        xterm.writeln(`\x1b[31mMax reconnection attempts reached. Click reconnect or refresh.\x1b[0m`)
+        onDisconnect()
+      }
     }
 
     // Send user input to WebSocket
@@ -119,12 +152,34 @@ export function Terminal({ sessionId, onDisconnect, onError }: TerminalProps) {
         ws.send(data)
       }
     })
+  }, [sessionId, isReconnecting, onDisconnect, onError])
+
+  // Connect WebSocket when sessionId changes
+  useEffect(() => {
+    reconnectAttemptRef.current = 0
+    setIsReconnecting(false)
+    clearReconnectTimeout()
+    connectWebSocket()
 
     return () => {
-      ws.close()
-      wsRef.current = null
+      clearReconnectTimeout()
+      if (wsRef.current) {
+        wsRef.current.close()
+        wsRef.current = null
+      }
     }
-  }, [sessionId, onDisconnect, onError])
+  }, [sessionId])
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      clearReconnectTimeout()
+      if (wsRef.current) {
+        wsRef.current.close()
+        wsRef.current = null
+      }
+    }
+  }, [clearReconnectTimeout])
 
   return (
     <div
