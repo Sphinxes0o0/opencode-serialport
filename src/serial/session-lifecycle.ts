@@ -56,7 +56,7 @@ export class SessionLifecycleManager {
 
   private buildSttyCommand(session: SerialSession): string {
     const { port, baudrate, databits, parity, stopbits } = session
-    const parts: string[] = ['stty', '-f', port, 'raw']
+    const parts: string[] = ['stty', '-f', port]
 
     // Set baud rate
     parts.push(String(baudrate))
@@ -86,6 +86,9 @@ export class SessionLifecycleManager {
 
     // Disable echo by default for serial
     parts.push('-echo')
+
+    // raw mode last to ensure settings are applied
+    parts.push('raw')
 
     return parts.join(' ')
   }

@@ -188,7 +188,7 @@ describe('stty command builder', () => {
     parity: string
     stopbits: number
   }): string => {
-    const parts: string[] = ['stty', '-f', session.port, 'raw']
+    const parts: string[] = ['stty', '-f', session.port]
 
     parts.push(String(session.baudrate))
     parts.push(`cs${session.databits}`)
@@ -208,6 +208,7 @@ describe('stty command builder', () => {
     }
 
     parts.push('-echo')
+    parts.push('raw')
 
     return parts.join(' ')
   }
@@ -229,6 +230,7 @@ describe('stty command builder', () => {
     expect(cmd).toContain('-parenb')
     expect(cmd).toContain('-cstopb')
     expect(cmd).toContain('-echo')
+    expect(cmd).toEndWith('raw')
   })
 
   test('should build stty command with even parity', () => {
