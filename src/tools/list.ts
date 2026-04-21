@@ -7,7 +7,7 @@ const DESCRIPTION =
 export const serialList = tool({
   description: DESCRIPTION,
   args: {},
-  async execute() {
+  async execute(_args, _ctx) {
     const lines: string[] = ['<serial_ports>']
 
     // macOS serial ports

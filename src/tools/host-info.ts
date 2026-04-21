@@ -308,7 +308,7 @@ const DESCRIPTION =
 export const serialHostInfo = tool({
   description: DESCRIPTION,
   args: {},
-  async execute() {
+  async execute(_args, _ctx) {
     const info = await getHostInfo()
 
     const lines: string[] = ['<host_info>']

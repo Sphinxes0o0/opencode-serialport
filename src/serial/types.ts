@@ -24,8 +24,8 @@ export interface SerialSession {
   databits: 5 | 6 | 7 | 8
   /** Parity setting */
   parity: 'none' | 'even' | 'odd' | 'mark' | 'space'
-  /** Number of stop bits (1, 1.5, or 2) */
-  stopbits: 1 | 1.5 | 2
+  /** Number of stop bits (1 or 2) */
+  stopbits: 1 | 2
   /** Flow control setting */
   flowControl: 'none' | 'hardware' | 'software'
   /** Current connection status */
@@ -94,7 +94,7 @@ export interface SpawnOptions {
   /** Parity (default: none) */
   parity?: 'none' | 'even' | 'odd' | 'mark' | 'space'
   /** Stop bits (default: 1) */
-  stopbits?: 1 | 1.5 | 2
+  stopbits?: 1 | 2
   /** Flow control (default: none) */
   flowControl?: 'none' | 'hardware' | 'software'
   /** Human-readable title */

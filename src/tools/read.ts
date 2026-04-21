@@ -153,7 +153,7 @@ export const serialRead = tool({
       .optional()
       .describe('Case-insensitive pattern matching (default: false)'),
   },
-  async execute(args) {
+  async execute(args, _ctx) {
     const session = manager.get(args.id)
     if (!session) {
       throw buildSessionNotFoundError(args.id)

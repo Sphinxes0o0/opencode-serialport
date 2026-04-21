@@ -34,7 +34,7 @@ export const serialWrite = tool({
       .optional()
       .describe('If true, do not parse escape sequences (default: false)'),
   },
-  async execute(args) {
+  async execute(args, _ctx) {
     // Validate data length
     if (args.data.length > MAX_DATA_LENGTH) {
       throw new Error(

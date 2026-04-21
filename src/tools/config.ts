@@ -16,7 +16,7 @@ export const serialConfig = tool({
       .optional()
       .describe('Change baud rate (requires reopen)'),
   },
-  async execute(args) {
+  async execute(args, _ctx) {
     const session = manager.get(args.id)
     if (!session) {
       throw buildSessionNotFoundError(args.id)

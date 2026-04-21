@@ -11,7 +11,7 @@ export const serialClear = tool({
       .string()
       .describe('Session ID (e.g., serial_a1b2c3d4)'),
   },
-  async execute(args) {
+  async execute(args, _ctx) {
     const session = manager.get(args.id)
     if (!session) {
       throw buildSessionNotFoundError(args.id)
@@ -20,9 +20,7 @@ export const serialClear = tool({
     // Get current line count before clearing
     const lineCountBefore = session.lineCount
 
-    // The manager doesn't have a direct clear method, so we need to access the buffer
-    // For now, we'll read the buffer to clear internal state if needed
-    // This is a placeholder - actual buffer clearing would need manager support
+    manager.clear(args.id)
 
     return [
       `<serial_cleared>`,

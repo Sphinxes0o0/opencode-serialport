@@ -8,7 +8,7 @@ const DESCRIPTION =
 // Validation constants
 const VALID_BAUDRATES = [300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600]
 const VALID_DATABITS = [5, 6, 7, 8]
-const VALID_STOPBITS = [1, 2]
+const VALID_STOPBITS = [1, 2] as const
 
 function validatePortPath(path: string): boolean {
   // Check for valid port path patterns
@@ -32,7 +32,7 @@ function validateDatabits(bits: number): boolean {
 }
 
 function validateStopbits(bits: number): boolean {
-  return VALID_STOPBITS.includes(bits)
+  return (VALID_STOPBITS as readonly number[]).includes(bits)
 }
 
 export const serialOpen = tool({
@@ -96,7 +96,7 @@ export const serialOpen = tool({
     }
 
     // Validate stopbits if provided
-    const stopbits = args.stopbits ?? 1
+    const stopbits: 1 | 2 = (args.stopbits ?? 1) as 1 | 2
     if (!validateStopbits(stopbits)) {
       throw new Error(
         `Invalid stopbits: ${stopbits}. Valid values: ${VALID_STOPBITS.join(', ')}`
@@ -110,7 +110,7 @@ export const serialOpen = tool({
       baudrate,
       databits: databits as 5 | 6 | 7 | 8,
       parity: args.parity ?? 'none',
-      stopbits: stopbits as 1 | 2,
+      stopbits,
       flowControl: args.flowControl ?? 'none',
       title: args.title,
       description: args.description,

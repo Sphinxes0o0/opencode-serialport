@@ -17,7 +17,7 @@ export const serialInstallDriver = tool({
       .optional()
       .describe('Skip confirmation prompt (for scripting)'),
   },
-  async execute(args, ctx) {
+  async execute(args, _ctx) {
     const info = await getHostInfo()
     const driverMap: Record<string, string> = {
       ch340: 'CH340/CH341 Driver',

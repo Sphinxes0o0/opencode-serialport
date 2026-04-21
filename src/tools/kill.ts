@@ -15,7 +15,7 @@ export const serialClose = tool({
       .optional()
       .describe('If true, removes session and frees buffer (default: false)'),
   },
-  async execute(args) {
+  async execute(args, _ctx) {
     const session = manager.get(args.id)
     if (!session) {
       throw buildSessionNotFoundError(args.id)
