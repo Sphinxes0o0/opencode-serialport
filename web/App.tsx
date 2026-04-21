@@ -20,6 +20,29 @@ function App() {
   const [theme, setTheme] = useState<'dark' | 'light'>('dark')
   const [serverOnline, setServerOnline] = useState(true)
 
+  // Load persisted settings from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('serial-settings')
+    if (saved) {
+      try {
+        const { fontSize: s, theme: t } = JSON.parse(saved)
+        if (s) setFontSize(s)
+        if (t) setTheme(t)
+      } catch { /* ignore corrupt data */ }
+    }
+  }, [])
+
+  // Persist settings to localStorage
+  const handleFontSizeChange = useCallback((size: number) => {
+    setFontSize(size)
+    localStorage.setItem('serial-settings', JSON.stringify({ fontSize: size, theme }))
+  }, [theme])
+
+  const handleThemeChange = useCallback((t: 'dark' | 'light') => {
+    setTheme(t)
+    localStorage.setItem('serial-settings', JSON.stringify({ fontSize, theme: t }))
+  }, [fontSize])
+
   // Parse session ID from URL path: /serial/:id
   const getSessionIdFromPath = useCallback((): string | null => {
     const match = window.location.pathname.match(/^\/serial\/(.+)$/)
@@ -192,9 +215,9 @@ function App() {
         isOpen={showSettings}
         onClose={() => setShowSettings(false)}
         fontSize={fontSize}
-        onFontSizeChange={setFontSize}
+        onFontSizeChange={handleFontSizeChange}
         theme={theme}
-        onThemeChange={setTheme}
+        onThemeChange={handleThemeChange}
       />
     </div>
   )

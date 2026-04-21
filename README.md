@@ -58,7 +58,7 @@ Open a serial port and create a session.
   databits?: 8,                      // default: 8
   parity?: "none" | "even" | "odd", // default: "none"
   stopbits?: 1 | 2,                 // default: 1
-  flowControl?: "none",              // default: "none" (hardware/software not yet supported)
+  flowControl?: "none",              // default: "none"
   title?: "My Arduino",
   description?: "Arduino UNO debug",
   notifyOnDisconnect?: false,
@@ -69,7 +69,7 @@ const result = await serial_open({ port: "/dev/cu.usbserial-0001", baudrate: 960
 
 ### serial_write
 
-Send data to the serial port. Escape sequences (`\n`, `\r`, `\t`, `\xNN`) are decoded by default.
+Send data to the serial port. Escape sequences (`\n`, `\r`, `\t`, `\xNN`, `\uNNNN`, `\\`) are decoded by default.
 
 ```typescript
 // Tool: serial_write
