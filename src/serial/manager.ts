@@ -17,9 +17,24 @@ class SerialManager {
   private lifecycleManager = new SessionLifecycleManager()
   private outputManager = new OutputManager()
   private broadcastCallback: BroadcastCallback | null = null
+  private client: OpencodeClient | null = null
 
-  init(_client: OpencodeClient): void {
-    // NotificationManager can be added here when needed
+  init(client: OpencodeClient): void {
+    this.client = client
+  }
+
+  private notifyDisconnect(session: SerialSession): void {
+    if (!session.notifyOnDisconnect || !this.client || !session.parentSessionId) return
+    this.client.session.prompt({
+      path: { id: session.parentSessionId },
+      body: {
+        noReply: true,
+        parts: [{
+          type: 'text',
+          text: `Serial port disconnected: ${session.title}\nPort: ${session.port}\nSession ID: ${session.id}`,
+        }],
+      },
+    }).catch(() => {}) // Fire-and-forget
   }
 
   /**
@@ -46,10 +61,12 @@ class SerialManager {
         }
       },
       (s) => {
-        // onDisconnect callback — could broadcast disconnect event
+        // Broadcast disconnect to WebSocket clients
         if (this.broadcastCallback) {
           this.broadcastCallback(s.id, '\n--- DISCONNECTED ---\n')
         }
+        // Notify parent session if enabled
+        this.notifyDisconnect(s)
       }
     )
     return { session, info: this.lifecycleManager.toInfo(session) }

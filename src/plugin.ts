@@ -80,5 +80,36 @@ export const SerialPlugin: Plugin = async ({
         }
       }
     },
+    'permission.ask': async (input, output) => {
+      if (input.type !== 'serial') return
+      // Check permission config for this port pattern
+      const portPattern = typeof input.pattern === 'string'
+        ? input.pattern
+        : Array.isArray(input.pattern) ? input.pattern[0] : ''
+      if (!portPattern) return
+      try {
+        const response = await client.config.get()
+        if (response.error || !response.data) return
+        const config = response.data as any
+        const serialPerms = config?.permission?.serial
+        if (!serialPerms) return
+        for (const [pattern, action] of Object.entries(serialPerms)) {
+          const regex = new RegExp('^' + pattern.replace(/\*/g, '.*').replace(/\?/g, '.') + '$')
+          if (regex.test(portPattern)) {
+            if (action === 'allow') {
+              output.status = 'allow'
+            } else if (action === 'deny') {
+              output.status = 'deny'
+            } else {
+              output.status = 'deny' // ask not supported, default to deny
+            }
+            return
+          }
+        }
+      } catch {
+        // On error, deny by default
+        output.status = 'deny'
+      }
+    },
   }
 }
