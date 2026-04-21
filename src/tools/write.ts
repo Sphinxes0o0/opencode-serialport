@@ -11,12 +11,16 @@ function parseEscapeSequences(data: string): string {
     .replace(/\\n/g, '\n')
     .replace(/\\r/g, '\r')
     .replace(/\\t/g, '\t')
-    .replace(/\\x([0-9a-fA-F]{2})/g, (_, hex) =>
-      String.fromCharCode(parseInt(hex, 16))
-    )
-    .replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) =>
-      String.fromCharCode(parseInt(hex, 16))
-    )
+    .replace(/\\x([0-9a-fA-F]{2})/g, (_, hex) => {
+      const code = parseInt(hex, 16)
+      if (code > 0xFF) return '\\x' + hex // Out of range, keep as-is
+      return String.fromCharCode(code)
+    })
+    .replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => {
+      const code = parseInt(hex, 16)
+      if (code > 0x10FFFF) return '\\u' + hex // Out of range, keep as-is
+      return String.fromCharCode(code)
+    })
     .replace(/\\\\/g, '\\')
 }
 

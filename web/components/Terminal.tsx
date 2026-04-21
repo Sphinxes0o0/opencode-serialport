@@ -84,6 +84,7 @@ export function Terminal({ sessionId, onDisconnect, onError, fontSize = 14, them
 
     return () => {
       observer.disconnect()
+      fitAddon.dispose()
       xterm.dispose()
     }
   }, [currentTheme, fontSize])

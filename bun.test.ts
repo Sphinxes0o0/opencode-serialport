@@ -70,8 +70,8 @@ describe('generateId', () => {
     const id1 = generateId()
     const id2 = generateId()
 
-    expect(id1).toMatch(/^serial_[a-f0-9]{8}$/)
-    expect(id2).toMatch(/^serial_[a-f0-9]{8}$/)
+    expect(id1).toMatch(/^serial_[a-f0-9]{32}$/)
+    expect(id2).toMatch(/^serial_[a-f0-9]{32}$/)
     expect(id1).not.toBe(id2)
   })
 
@@ -79,7 +79,7 @@ describe('generateId', () => {
     const { generateId } = require('./src/serial/utils')
 
     const id = generateId('custom')
-    expect(id).toMatch(/^custom_[a-f0-9]{8}$/)
+    expect(id).toMatch(/^custom_[a-f0-9]{32}$/)
   })
 })
 
@@ -266,7 +266,7 @@ describe('Session ID generation', () => {
     // Generate multiple IDs and check format
     for (let i = 0; i < 10; i++) {
       const id = generateId()
-      expect(id).toMatch(/^serial_[a-f0-9]{8}$/)
+      expect(id).toMatch(/^serial_[a-f0-9]{32}$/)
     }
   })
 

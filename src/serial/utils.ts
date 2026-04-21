@@ -13,7 +13,7 @@ export function withSession<TSession, TResult>(
   return fn(session)
 }
 
-const SESSION_ID_BYTE_LENGTH = 4
+const SESSION_ID_BYTE_LENGTH = 16
 
 export function generateId(prefix: string = 'serial'): string {
   const hex = Array.from(crypto.getRandomValues(new Uint8Array(SESSION_ID_BYTE_LENGTH)))

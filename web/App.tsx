@@ -18,6 +18,7 @@ function App() {
   const [showSettings, setShowSettings] = useState(false)
   const [fontSize, setFontSize] = useState(14)
   const [theme, setTheme] = useState<'dark' | 'light'>('dark')
+  const [serverOnline, setServerOnline] = useState(true)
 
   // Parse session ID from URL path: /serial/:id
   const getSessionIdFromPath = useCallback((): string | null => {
@@ -32,9 +33,12 @@ function App() {
       if (response.ok) {
         const data = await response.json()
         setSessions(data.sessions || [])
+        setServerOnline(true)
+      } else {
+        setServerOnline(false)
       }
     } catch {
-      // Silently fail - server might not be running
+      setServerOnline(false)
     }
   }, [])
 
@@ -85,6 +89,11 @@ function App() {
         <span style={{ fontSize: '12px', color: secondaryColor, background: cardBg, padding: '2px 8px', borderRadius: '12px' }}>
           {sessions.length} session(s)
         </span>
+        {!serverOnline && (
+          <span style={{ fontSize: '12px', color: '#d29922', background: '#d2992222', padding: '2px 8px', borderRadius: '12px' }}>
+            Server offline
+          </span>
+        )}
         <div style={{ flex: 1 }} />
         <button
           onClick={() => setShowSettings(true)}

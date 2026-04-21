@@ -10,15 +10,15 @@ const DESCRIPTION =
 function validateRegex(pattern: string): boolean {
   try {
     new RegExp(pattern)
-    const dangerous = [
-      /\(\?:.*\)\*.*\(\?:.*\)\*/,
-      /.*\(\.\*\?\)\{2,\}.*/,
-      /.*\(.*\|.*\)\{3,\}.*/,
-    ]
-    return !dangerous.some((d) => d.test(pattern))
   } catch {
     return false
   }
+  // Reject patterns with nested quantifiers (ReDoS risk)
+  // e.g., (a+)+, (a|a)+, (.*?){3,}, (a+)*, etc.
+  if (/\([^)]*?[+*][^)]*\)[+*]/.test(pattern)) return false
+  // Reject patterns with adjacent alternations repeated 3+ times
+  if (/\(.{1,10}\|[.#]\){3,}/.test(pattern)) return false
+  return true
 }
 
 function validateAndCreateRegex(pattern: string, ignoreCase?: boolean): RegExp {
@@ -26,14 +26,6 @@ function validateAndCreateRegex(pattern: string, ignoreCase?: boolean): RegExp {
     throw new Error(`Potentially dangerous regex pattern rejected: '${pattern}'`)
   }
   return new RegExp(pattern, ignoreCase ? 'i' : '')
-}
-
-function appendNotifyOnDisconnectReminder(
-  output: string,
-  session: SerialSessionInfo
-): string {
-  if (!session.status) return output
-  return output
 }
 
 function formatPtyOutput(

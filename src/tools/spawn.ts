@@ -11,6 +11,8 @@ const VALID_DATABITS = [5, 6, 7, 8]
 const VALID_STOPBITS = [1, 2] as const
 
 function validatePortPath(path: string): boolean {
+  // Check for shell metacharacters (defense in depth with buildSttyCommand sanitization)
+  if (/[;|`$(){}[\]<>\\!#*?"' ]/.test(path)) return false
   // Check for valid port path patterns
   const patterns = [
     /^\/dev\/cu\./,      // macOS

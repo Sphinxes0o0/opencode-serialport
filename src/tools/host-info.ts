@@ -292,14 +292,13 @@ function getMissingDrivers(info: Partial<HostInfo>): DriverRecommendation[] {
     return []
   }
 
-  const drivers = DRIVER_RECOMMENDATIONS[os] || []
-
-  // If no serial ports, recommend all common drivers
-  if (!info.serialPorts || info.serialPorts.length === 0) {
-    return drivers
+  // If serial ports are found, drivers are likely already working
+  if (info.serialPorts && info.serialPorts.length > 0) {
+    return []
   }
 
-  return []
+  // No serial ports found — suggest common drivers
+  return DRIVER_RECOMMENDATIONS[os] || []
 }
 
 const DESCRIPTION =

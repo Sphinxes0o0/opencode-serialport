@@ -6,6 +6,7 @@ import type { SerialSession, SerialSessionInfo, SpawnOptions } from './types'
 
 export class SessionLifecycleManager {
   private sessions: Map<string, SerialSession> = new Map()
+  private writeQueues: Map<string, Promise<void>> = new Map()
 
   async open(
     opts: SpawnOptions,
@@ -55,7 +56,13 @@ export class SessionLifecycleManager {
   }
 
   private buildSttyCommand(session: SerialSession): string {
-    const { port, baudrate, databits, parity, stopbits } = session
+    const { port, baudrate, databits, parity, stopbits, flowControl } = session
+
+    // Sanitize port path to prevent command injection
+    if (!/^[\w\/\.-]+$/.test(port)) {
+      throw new Error(`Invalid port path: contains potentially dangerous characters: ${port}`)
+    }
+
     const parts: string[] = ['stty', '-f', port]
 
     // Set baud rate
@@ -82,6 +89,15 @@ export class SessionLifecycleManager {
       parts.push('cstopb')
     } else {
       parts.push('-cstopb')
+    }
+
+    // Set flow control
+    if (flowControl === 'hardware') {
+      parts.push('crtscts')
+    } else if (flowControl === 'software') {
+      parts.push('ixon', 'ixany')
+    } else {
+      parts.push('-crtscts', '-ixon', '-ixany')
     }
 
     // Disable echo by default for serial
@@ -138,29 +154,37 @@ export class SessionLifecycleManager {
 
   write(session: SerialSession, data: string): boolean {
     if (session.fd === null || session.status !== 'open') return false
-    try {
-      const encoder = new TextEncoder()
-      const bytes = encoder.encode(data)
-      writeSync(session.fd, bytes)
-      return true
-    } catch {
-      return false
-    }
+    // Serialize writes to prevent data interleaving
+    const lastWrite = this.writeQueues.get(session.id) ?? Promise.resolve()
+    const thisWrite = lastWrite.then(() => {
+      if (session.fd === null || session.status !== 'open') return
+      try {
+        const encoder = new TextEncoder()
+        const bytes = encoder.encode(data)
+        writeSync(session.fd, bytes)
+      } catch {
+        // Write error — will be reported on next read
+      }
+    })
+    this.writeQueues.set(session.id, thisWrite)
+    return true
   }
 
   close(id: string, cleanup: boolean = false): boolean {
     const session = this.sessions.get(id)
     if (!session) return false
 
-    if (session.status === 'open') {
+    if (session.status === 'open' || session.status === 'closing') {
       session.status = 'closing'
       if (session.fd !== null) {
+        // Set fd=null BEFORE closeSync to prevent race with read loop
+        const fd = session.fd
+        session.fd = null
         try {
-          closeSync(session.fd)
+          closeSync(fd)
         } catch {
           // Ignore close errors
         }
-        session.fd = null
       }
       session.status = 'closed'
     }
@@ -168,6 +192,7 @@ export class SessionLifecycleManager {
     if (cleanup) {
       session.buffer.clear()
       this.sessions.delete(id)
+      this.writeQueues.delete(id)
     }
 
     return true
