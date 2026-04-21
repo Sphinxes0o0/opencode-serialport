@@ -46,9 +46,10 @@ async function denyWithToast(msg: string, details?: string): Promise<never> {
 
 function matchPortPattern(port: string, pattern: string): boolean {
   if (pattern === '*') return true
-  // Convert glob-like pattern to regex
+  // Escape special regex characters first, then convert glob wildcards
+  const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&')
   const regex = new RegExp(
-    '^' + pattern.replace(/\*/g, '.*').replace(/\?/g, '.') + '$'
+    '^' + escaped.replace(/\*/g, '.*').replace(/\?/g, '.') + '$'
   )
   return regex.test(port)
 }

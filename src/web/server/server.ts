@@ -230,11 +230,11 @@ export class SerialWebSocketServer implements Disposable {
             if (sockets) {
               sockets.delete(ws)
               if (sockets.size === 0) {
+                // Flush pending messages before deleting the session entry
+                this.flushSession(sessionId)
                 this.sessionWebSockets.delete(sessionId)
               }
             }
-            // Flush any pending messages for this session
-            this.flushSession(sessionId)
           }
         },
       },
@@ -246,6 +246,14 @@ export class SerialWebSocketServer implements Disposable {
   }
 
   [Symbol.dispose]() {
+    // Close all active WebSocket connections
+    for (const sockets of this.sessionWebSockets.values()) {
+      for (const ws of sockets) {
+        ws.close(1001, 'Server shutting down')
+      }
+    }
+    this.sessionWebSockets.clear()
+
     // Clear all timers
     for (const timer of this.flushTimers.values()) {
       clearTimeout(timer)

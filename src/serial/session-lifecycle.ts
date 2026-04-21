@@ -43,9 +43,10 @@ export class SessionLifecycleManager {
     // Open the serial port file descriptor (synchronous)
     session.fd = openSync(session.port, 'r+')
 
-    // Start async read loop
+    // Start async read loop (fire-and-forget)
     this.startReadLoop(session, onData, onDisconnect)
 
+    // Only store session after fd is open and read loop started
     this.sessions.set(session.id, session)
     return session
   }
@@ -192,8 +193,10 @@ export class SessionLifecycleManager {
     if (cleanup) {
       session.buffer.clear()
       this.sessions.delete(id)
-      this.writeQueues.delete(id)
     }
+
+    // Always clean up write queue when closing
+    this.writeQueues.delete(id)
 
     return true
   }
